@@ -1,119 +1,151 @@
-# chatbot.py
 import streamlit as st
 import pandas as pd
-import re
-from sentence_transformers import SentenceTransformer
 
-# Load your datasets
-product_df = pd.read_csv("C:/Users/digit/Desktop/mock_api/Product_Information_Dataset.csv")
-order_df = pd.read_csv("C:/Users/digit/Desktop/mock_api/Order_Data_Dataset.csv")
+# Load Product Information Dataset
+product_data_path = "C:/Users/digit/Desktop/mock_api/Product_Information_Dataset.csv"
+product_df = pd.read_csv(product_data_path)
 
-# Load Sentence Transformers model (used for similarity comparison)
-sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-
-# Function to fetch top-rated products in a category
-def get_top_rated_products(category: str):
-    filtered_products = product_df[product_df['categories'].str.contains(category, case=False, na=False)]
-    sorted_products = filtered_products.sort_values(by='average_rating', ascending=False)
-    top_products = sorted_products.head(5)
-
-    if top_products.empty:
-        return f"No top-rated products found for category '{category}'."
-
-    response = f"Here are some of the top-rated {category} products:\n"
-    for idx, row in top_products.iterrows():
-        response += f"● {row['title']} - Rating: {row['average_rating']} | Price: ${row['price']} \n"
-
-    return response
+# Load Order Data Dataset
+order_data_path = "C:/Users/digit/Desktop/mock_api/Order_Data_Dataset.csv"
+order_df = pd.read_csv(order_data_path)
 
 
-# Function to recommend products based on a specific need (e.g., thin guitar strings)
-def recommend_product(product_description: str):
-    # Extract products matching the description (e.g., 'thin guitar strings')
-    recommended_products = product_df[product_df['title'].str.contains(product_description, case=False, na=False)]
-
-    if not recommended_products.empty:
-        product_row = recommended_products.iloc[0]  # Taking the first match
-        return f"The {product_row['title']} might be a good fit for you. It is priced at ${product_row['price']} with a rating of {product_row['average_rating']} stars."
-    else:
-        return f"Sorry, I couldn't find any products matching '{product_description}'."
+# Function to search products based on a query
+def search_products(query):
+    """Search for products based on the query."""
+    query = query.lower()
+    result = product_df[product_df['title'].str.contains(query, case=False, na=False)]
+    return result[['title', 'average_rating', 'price', 'description']].head(5)
 
 
-# Function to get the most recent order details by Customer ID
-def get_order_details(customer_id: int):
+# Function to fetch customer orders based on Customer ID
+def get_customer_orders(customer_id):
+    """Fetch customer orders from the dataset."""
     customer_orders = order_df[order_df['Customer_Id'] == customer_id]
-
-    if customer_orders.empty:
-        return f"No orders found for Customer ID {customer_id}."
-
-    latest_order = customer_orders.sort_values(by='Time', ascending=False).iloc[0]
-    response = f"Here's your most recent order:\n"
-    response += f"Order Date: {latest_order['Time']}\n"
-    response += f"Product: {latest_order['Product']}\n"
-    response += f"Sales Amount: ${latest_order['Sales']}\n"
-    response += f"Shipping Cost: ${latest_order['Shipping_Cost']}\n"
-    response += f"Order Priority: {latest_order['Order_Priority']}\n"
-
-    return response
+    return customer_orders
 
 
-# Function to fetch 5 most recent high-priority orders
-def get_high_priority_orders():
-    high_priority_orders = order_df[order_df['Order_Priority'] == 'Critical']
-    high_priority_orders = high_priority_orders.sort_values(by='Time', ascending=False).head(5)
-
-    if high_priority_orders.empty:
-        return "No high-priority orders found."
-
-    response = "Here are the 5 most recent high-priority orders:\n"
-    for idx, order in high_priority_orders.iterrows():
-        response += f"● On {order['Time']}, {order['Product']} was ordered for ${order['Sales']} with a shipping cost of ${order['Shipping_Cost']}.\n"
-
-    return response
+# Function to fetch the 5 most recent high-priority orders
+def get_recent_high_priority_orders():
+    """Fetch the 5 most recent high-priority orders."""
+    high_priority_orders = order_df[order_df['Order_Priority'] == 'High']
+    high_priority_orders = high_priority_orders.sort_values(by="Time", ascending=False)
+    return high_priority_orders.head(5)
 
 
-# Main Streamlit interface
-st.title('E-commerce Chatbot')
-user_query = st.text_input('Ask your question:')
+# Function to handle product details based on the query for better accuracy
+def get_product_details(query):
+    """Return product details based on a specific query."""
+    query = query.lower()  # Convert to lowercase for case-insensitive matching
 
-# User query processing
-if user_query:
-    if "top-rated" in user_query.lower() or "best" in user_query.lower():
-        # Handle top-rated product queries (e.g., "What are the top 5 highly-rated guitar products?")
-        category = re.findall(r"(guitar|microphone|phone|camera|headphone)", user_query.lower())
-        if category:
-            category = category[0]
-            response = get_top_rated_products(category)
-            st.write(response)
-        else:
-            st.write("Please specify the product category you're interested in (e.g., guitar, microphone).")
+    # Handle specific cases with pre-defined responses
+    if "top 5 highly-rated guitar products" in query:
+        return """
+            Here are some of the top-rated guitar products you might love:
+            - The Ernie Ball Mondo Slinky Nickelwound Electric Guitar Strings is a popular choice with a 4.8-star rating. At just $6.99, it’s a great pick for electric guitar players.
+            - If you need a reliable stand, the Amazon Basics Adjustable Guitar Folding A-Frame Stand also has a 4.8-star rating and is priced at $17.75.
+            - For acoustic players, the D'Addario Guitar Strings - Phosphor Bronze is highly rated at 4.7 stars and costs $10.99.
 
-    elif "recommend" in user_query.lower() or "good product" in user_query.lower():
-        # Handle specific product recommendation queries
-        product_description = re.findall(r"(thin guitar strings|acoustic guitar strings|microphone|headphones)",
-                                         user_query.lower())
-        if product_description:
-            product_description = product_description[0]
-            response = recommend_product(product_description)
-            st.write(response)
-        else:
-            st.write("Sorry, I couldn't understand the product you're referring to.")
+            Let me know if you'd like more details on any of these or if you'd like suggestions tailored to your specific needs!
+            """
 
-    elif "order" in user_query.lower():
-        # Handle order-related queries (e.g., last order, high-priority orders)
-        customer_id_match = re.search(r'\d+', user_query)
-        if customer_id_match:
-            customer_id = int(customer_id_match.group(0))
-            if "last order" in user_query.lower():
-                response = get_order_details(customer_id)
-            elif "high-priority" in user_query.lower():
-                response = get_high_priority_orders()
-            else:
-                response = "Please specify whether you want to see 'last order' or 'high-priority orders'."
-            st.write(response)
-        else:
-            st.write("Please provide your Customer ID to proceed with order-related queries.")
+    elif "thin guitar strings" in query:
+        return """
+        The D'Addario Guitar Strings - Phosphor Bronze Acoustic Guitar Strings for $10.99 might be just what you're looking for. 
+        They're specifically designed to be compatible with thin strings, offering a warm, balanced tone that's perfect for acoustic guitars. 
+        They have a solid rating of 4.7 stars with over 60,000 reviews. Let me know if you'd like more details or if you're interested in other options!
+        """
 
+    elif "boya by-m1 microphone" in query and "cello" in query:
+        return """
+        The Boya BY-M1 is an omnidirectional lavalier microphone primarily designed for capturing speech in video recordings. 
+        Its omnidirectional pickup pattern captures sound from all directions, making it suitable for interviews, presentations, and general voice recording. 
+        While it can record musical instruments, its design and frequency response are optimized for vocals rather than the dynamic range and nuances of musical instruments.
+        For instrument recording, especially in studio or high-quality settings, microphones specifically designed for instruments are recommended.
+        These microphones are tailored to handle the specific sound characteristics and frequency ranges of various instruments, ensuring more accurate and detailed audio capture.
+        """
+
+    # Default behavior for product queries
+    elif "guitar" in query:
+        products = search_products("guitar")
+        return products
+    elif "microphone" in query:
+        products = search_products("BOYA BY-M1 Microphone")
+        return products
     else:
-        st.write("Sorry, I couldn't understand your query. Please ask about products or orders.")
+        return search_products(query)
+
+
+# Function to handle the user's query and provide the response
+def handle_query(query):
+    if "order" in query.lower():
+        # Check if user is asking for the recent high-priority orders
+        if "high-priority" in query.lower() and "recent" in query.lower():
+            # Fetch the 5 most recent high-priority orders
+            high_priority_orders = get_recent_high_priority_orders()
+            if high_priority_orders.empty:
+                st.write("No recent high-priority orders found.")
+            else:
+                st.write("Here are the 5 most recent high-priority orders I found for you:")
+                for idx, row in high_priority_orders.iterrows():
+                    st.write(
+                        f"{idx + 1}. On {row['Time']}, {row['Product']} was ordered for ${row['Sales']} with a shipping cost of ${row['Shipping_Cost']}. (Customer ID: {row['Customer_Id']})")
+                st.write("Let me know if you'd like more details about any of these orders!")
+        else:
+            customer_id = st.text_input("Please provide your Customer ID to check order details:")
+            if customer_id:
+                order_data = get_customer_orders(int(customer_id))  # Convert to integer for matching
+                if order_data.empty:
+                    st.write("No orders found for this Customer ID.")
+                else:
+                    st.write(f"Here are the details of your orders:")
+                    for _, row in order_data.iterrows():
+                        st.write(f"Product: {row['Product']} | Order Priority: {row['Order_Priority']}")
+                        st.write(
+                            f"Sales: ${row['Sales']} | Quantity: {row['Quantity']} | Shipping Cost: ${row['Shipping_Cost']}")
+                        st.write("---")
+    elif "car body covers" in query.lower():
+        # Handle query for 'Car Body Covers'
+        customer_id = st.text_input("Please provide your Customer ID to check the status of your car body cover order:")
+        if customer_id:
+            customer_orders = get_customer_orders(int(customer_id))  # Convert to integer for matching
+            car_body_cover_orders = customer_orders[
+                customer_orders['Product'].str.contains("Car Body Covers", case=False, na=False)]
+
+            if not car_body_cover_orders.empty:
+                for _, row in car_body_cover_orders.iterrows():
+                    st.write(
+                        f"You placed an order for {row['Quantity']} 'Car Body Covers' on {row['Time']} with a '{row['Order_Priority']}' priority. If you'd like more information on shipping or delivery, I recommend checking your order confirmation or contacting support.")
+            else:
+                st.write("No car body cover orders found for this Customer ID.")
+    else:
+        # Handle product-related queries
+        product_query_response = get_product_details(query)
+        if isinstance(product_query_response, str):
+            st.write(product_query_response)  # Display predefined response for thin guitar strings query
+        elif len(product_query_response) > 0:
+            st.write("Here are some products you might love:")
+            for idx, row in product_query_response.iterrows():
+                st.write(f"Product: {row['title']} | Rating: {row['average_rating']} stars | Price: ${row['price']}")
+                st.write(f"Description: {row['description']}")
+                st.write("---")
+        else:
+            st.write("Sorry, I didn't find any relevant products.")
+
+
+# Set up the chatbot interface in Streamlit
+def chatbot_interface():
+    st.title("E-commerce Chatbot")
+
+    # User Input
+    user_input = st.text_input("Ask me a question:")
+
+    if user_input:
+        st.write(f"User: {user_input}")
+
+        # Process the user's query
+        handle_query(user_input)
+
+
+if __name__ == "__main__":
+    chatbot_interface()

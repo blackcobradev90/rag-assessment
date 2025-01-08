@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import pandas as pd
 
-# Load dataset
+# Load Order Data Dataset
 DATASET_PATH = "C:/Users/digit/Desktop/mock_api/Order_Data_Dataset.csv"
 df = pd.read_csv(DATASET_PATH)
 
@@ -77,3 +77,11 @@ def profit_by_gender():
     """Calculate total profit by customer gender."""
     profit_summary = df.groupby("Gender")["Profit"].sum().reset_index()
     return profit_summary.to_dict(orient="records")
+
+
+
+
+
+
+
+
